@@ -11,6 +11,8 @@ const pdfForm = document.querySelector('#pdf-form');
 const pdfStatus = document.querySelector('#pdf-status');
 const pdfActions = document.querySelector('#pdf-actions');
 const pdfButton = pdfForm.querySelector('button');
+const renderData = document.querySelector('#pdf-render-data');
+const pdfRender = renderData ? JSON.parse(renderData.textContent) : null;
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -64,7 +66,7 @@ function renderCompanyPages(company, report) {
     parent.append(element('h3', heading), ...content);
   }
 
-  const years = ['항목', '2024년', '2025년'];
+  const years = ['항목', ...(report.years ?? ['2024년', '2025년'])];
   const overview = page(company + ' 기업 분석');
   section(overview, '종합 의견', element('p', report.opinion));
   section(overview, '회사 개요', element('p', report.overview));
@@ -80,11 +82,11 @@ function renderCompanyPages(company, report) {
   const finances = page('현금흐름·실적 추이·감사');
   finances.append(element('p', '단위 억 원', 'comparison-note'));
   section(finances, '현금흐름표 요약', reportTable(years, report.cash, 'numeric-table'));
-  section(finances, '최근 3개년 실적', reportTable(['항목', '2023년', '2024년', '2025년'], report.trend, 'numeric-table'));
+  section(finances, '최근 3개년 실적', reportTable(['항목', ...(report.trendYears ?? ['2023년', '2024년', '2025년'])], report.trend, 'numeric-table'));
   section(finances, '감사·회계 유의사항', element('p', report.audit), sources(report.sources.slice(0, 2)));
 
   const risks = page('업종별 위험과 주요 소송 현황');
-  section(risks, '재무제표 주석과 업종별 위험', reportTable(['항목', '공시에서 확인한 사실', '정밀검토 질문'], report.risks, 'notes-table'));
+  section(risks, report.riskHeading ?? '재무제표 주석과 업종별 위험', reportTable(['항목', '공시에서 확인한 사실', '정밀검토 질문'], report.risks, 'notes-table'));
   section(risks, '주요 소송 현황', reportTable(['사건', '진행 상태', '공시 금액', '확정 여부', '출처'], report.litigation, 'litigation-table'));
   section(risks, '우선 요청 자료', element('p', report.followup), sources(report.sources));
 }
@@ -132,7 +134,7 @@ function agendaReview(isKait, agenda) {
   };
 }
 
-form.addEventListener('submit', (event) => {
+form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const company = companyInput.value.trim();
   if (!company) {
@@ -144,25 +146,48 @@ form.addEventListener('submit', (event) => {
   const isKait = ['한국자산신탁', '123890', '00404701'].includes(company.replace(/\s+/g, ''));
   const matched = Object.entries(companyReports).find(([name, report]) => name === company || report.code === company);
   const isDemo = company === '한빛산업';
+  let automatic = pdfRender?.automatic;
+  const agenda = agendaInput.value.trim();
   if (!isKait && !matched && !isDemo) {
-    companyInput.setCustomValidity('등록된 보고서는 한국자산신탁, 한국금거래소, 토스뱅크입니다. 다른 기업은 DART 공시 조회를 이용해 주세요.');
-    companyInput.reportValidity();
-    return;
+    const notice = document.querySelector('#lookup-status');
+    const submit = form.querySelector('button[type="submit"]');
+    if (!automatic) {
+      if (window.location.protocol === 'file:') {
+        notice.textContent = '새 기업 보고서는 로컬 서버에서 열어 주세요.';
+        return;
+      }
+      notice.textContent = 'OpenDART에서 재무제표와 공시를 가져오는 중입니다…';
+      submit.disabled = true;
+      try {
+        const query = new URLSearchParams({ company });
+        const response = await fetch('api/report?' + query);
+        automatic = await response.json();
+        if (!response.ok) {
+          notice.textContent = automatic.error;
+          return;
+        }
+        notice.textContent = automatic.company + '의 기본 검토를 표시했습니다.';
+      } catch {
+        notice.textContent = '기업 보고서를 불러오지 못했습니다.';
+        return;
+      } finally {
+        submit.disabled = false;
+      }
+    }
   }
 
-  const agenda = agendaInput.value.trim();
-  const reportCompany = isKait ? '한국자산신탁' : matched?.[0] ?? '한빛산업';
-  pdfForm.elements.company.value = reportCompany;
+  const reportCompany = automatic?.company ?? (isKait ? '한국자산신탁' : matched?.[0] ?? '한빛산업');
+  pdfForm.elements.company.value = automatic?.code ?? reportCompany;
   pdfForm.elements.agenda.value = agenda;
   pdfStatus.hidden = true;
   pdfActions.hidden = true;
   const review = agendaReview(isKait, agenda);
-  if (matched) {
-    review.opinion = '입력된 거래 조건을 확인한 뒤 기업 검토본의 관련 위험과 대조합니다. ' + matched[1].followup;
+  if (matched || automatic) {
+    review.opinion = '입력된 거래 조건을 확인한 뒤 기업 검토본의 관련 위험과 대조합니다. ' + (automatic?.report ?? matched[1]).followup;
   }
   kaitPages.forEach((page) => { page.hidden = !isKait; });
   demoPages.forEach((page) => { page.hidden = !isDemo; });
-  renderCompanyPages(reportCompany, matched?.[1]);
+  renderCompanyPages(reportCompany, automatic?.report ?? matched?.[1]);
   agendaPage.hidden = !agenda;
   agendaText.textContent = agenda;
   document.querySelector('#agenda-opinion').textContent = review.opinion;
@@ -220,11 +245,9 @@ pdfForm.addEventListener('submit', async (event) => {
   }
 });
 
-const renderData = document.querySelector('#pdf-render-data');
-if (renderData) {
-  const report = JSON.parse(renderData.textContent);
-  companyInput.value = report.company;
-  agendaInput.value = report.agenda;
+if (pdfRender) {
+  companyInput.value = pdfRender.company;
+  agendaInput.value = pdfRender.agenda;
   form.requestSubmit();
 } else {
   const company = new URLSearchParams(window.location.search).get('company');

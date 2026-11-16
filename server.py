@@ -27,6 +27,7 @@ PDF_FILES = {}
 PDF_LOCK = threading.Lock()
 PDF_LIFETIME = 15 * 60
 PDF_LIMIT = 12
+STATIC_REPORTS = {'한국자산신탁', '한국금거래소', '토스뱅크', '한빛산업'}
 
 
 class LookupError(Exception):
@@ -122,10 +123,115 @@ def lookup(company, today):
         if page >= payload['total_page']:
             break
         page += 1
-    return {'company': name, 'start': start.isoformat(), 'end': today.isoformat(), 'filings': filings}
+    return {'company': name, 'code': code, 'start': start.isoformat(), 'end': today.isoformat(), 'filings': filings}
 
 
-def render_pdf(company, agenda):
+FINANCIAL_ACCOUNTS = {
+    'balance': [
+        ('자산총계', 'BS', ('자산총계', '자산총액')),
+        ('부채총계', 'BS', ('부채총계', '부채총액')),
+        ('자본총계', 'BS', ('자본총계', '자본총액')),
+        ('현금및현금성자산', 'BS', ('현금및현금성자산',)),
+    ],
+    'income': [
+        ('매출액·영업수익', 'IS', ('매출액', '매출', '영업수익', '수익(매출액)')),
+        ('영업이익', 'IS', ('영업이익', '영업이익(손실)', '영업손익')),
+        ('당기순이익', 'IS', ('당기순이익', '당기순이익(손실)', '당기순손익', '연결당기순이익')),
+    ],
+    'cash': [
+        ('영업활동 현금흐름', 'CF', ('영업활동현금흐름', '영업활동순현금흐름', '영업활동으로인한현금흐름')),
+        ('투자활동 현금흐름', 'CF', ('투자활동현금흐름', '투자활동순현금흐름', '투자활동으로인한현금흐름')),
+        ('재무활동 현금흐름', 'CF', ('재무활동현금흐름', '재무활동순현금흐름', '재무활동으로인한현금흐름')),
+    ],
+}
+
+
+def annual_figures(key, code, year, basis):
+    data = json.loads(fetch('fnlttSinglAcntAll.json', key, corp_code=code,
+                            bsns_year=year, reprt_code='11011', fs_div=basis))
+    check_status(data)
+    values = {}
+    for row in data.get('list', []):
+        account = (row['sj_div'], normalize(row['account_nm']))
+        amount = (row.get('thstrm_amount') or '').replace(',', '')
+        if re.fullmatch(r'-?\d+', amount):
+            values.setdefault(account, int(amount))
+    return values
+
+
+def build_report(company, today):
+    result = lookup(company, today)
+    filings, code = result['filings'], result['code']
+    key = api_key()
+    profile = json.loads(fetch('company.json', key, corp_code=code))
+    check_status(profile)
+
+    annual = {}
+    for filing in filings:
+        period = re.search(r'사업보고서\s*\((\d{4})\.\d{2}\)', filing['title'])
+        if period:
+            annual.setdefault(period[1], filing)
+    years = sorted(annual)[-3:]
+    basis = 'CFS'
+    figures = {}
+    if years:
+        latest = annual_figures(key, code, years[-1], basis)
+        if not latest:
+            basis = 'OFS'
+            latest = annual_figures(key, code, years[-1], basis)
+        if latest:
+            figures = {year: annual_figures(key, code, year, basis) for year in years[:-1]}
+            figures[years[-1]] = latest
+
+    def value(accounts, item):
+        _, section, names = item
+        sections = ('IS', 'CIS') if section == 'IS' else (section,)
+        return next((accounts[(group, name)] for group in sections for name in names
+                     if (group, name) in accounts), None)
+
+    def table(section, display_years):
+        rows = []
+        for item in FINANCIAL_ACCOUNTS[section]:
+            amounts = [value(figures.get(year, {}), item) for year in display_years]
+            rows.append([item[0], *['' if amount is None else f'{amount / 100_000_000:,.1f}' for amount in amounts]])
+        return rows
+
+    highlights = []
+    if len(years) >= 2:
+        previous, current = years[-2:]
+        for item in [*FINANCIAL_ACCOUNTS['income'], FINANCIAL_ACCOUNTS['cash'][0]]:
+            before = value(figures.get(previous, {}), item)
+            after = value(figures.get(current, {}), item)
+            if before is not None and after is not None and after < before:
+                highlights.append(f'{item[0]}이(가) 전년보다 {(before-after)/100_000_000:,.1f}억 원 감소했습니다.')
+    material = [f for f in filings if re.search(r'소송|판결|감사보고서|유상증자|감자결정|합병|회생|영업정지|공급계약', f['title'])][:8]
+    refs = [(f['title'].strip(), f['url'][-14:]) for f in [*(annual[y] for y in reversed(years)), *material]]
+    litigation = [[f['title'].strip(), f['date'], '', '', ''] for f in material if '소송' in f['title'] or '판결' in f['title']]
+    compared = years[-2:]
+    report = {
+        'scope': f'{years[-1]}년 사업보고서 · {"연결" if basis == "CFS" else "별도"}' if figures else 'DART 공시 목록 기준',
+        'opinion': ' '.join(highlights) if highlights else (
+            '자동 비교에서 감소가 확인된 주요 손익·영업현금흐름 지표가 없습니다.' if figures and len(years) >= 2
+            else '비교 가능한 재무정보가 부족합니다. 원문 재무제표와 감사보고서를 확인해 주세요.'),
+        'overview': ' · '.join(str(profile[k]) for k in ('corp_name', 'ceo_nm', 'adres') if profile.get(k)),
+        'business': '',
+        'audit': '',
+        'years': [f'{y}년' for y in compared],
+        'trendYears': [f'{y}년' for y in years],
+        'balance': table('balance', compared) if figures else [],
+        'income': table('income', compared) if figures else [],
+        'cash': table('cash', compared) if figures else [],
+        'trend': table('income', years) if figures else [],
+        'risks': [[f['title'].strip(), f['date'], '원문에서 발생 조건과 회사에 미칠 영향을 확인합니다.'] for f in material],
+        'riskHeading': '주요 공시 · 원문 검토 대상',
+        'litigation': litigation,
+        'followup': '사업 내용, 감사의견, 우발채무와 소송의 구체적인 내용은 공시 원문을 추가 검토합니다.',
+        'sources': list(dict.fromkeys(refs)),
+    }
+    return {'company': result['company'], 'code': code, 'report': report}
+
+
+def render_pdf(company, agenda, automatic=None):
     browser = os.getenv('PDF_BROWSER') or shutil.which('chromium') or shutil.which('google-chrome')
     if not browser:
         browser = '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
@@ -133,7 +239,7 @@ def render_pdf(company, agenda):
         folder = Path(work)
         report = folder / 'index.html'
         output = folder / 'report.pdf'
-        data = json.dumps({'company': company, 'agenda': agenda}).replace('<', '\\u003c')
+        data = json.dumps({'company': company, 'agenda': agenda, 'automatic': automatic}).replace('<', '\\u003c')
         html = (ROOT / 'dist/index.html').read_text(encoding='utf-8')
         report.write_text(html.replace('</head>', f'<script id="pdf-render-data" type="application/json">{data}</script></head>', 1), encoding='utf-8')
         for name in ('app.js', 'company-reports.js', 'style.css'):
@@ -163,14 +269,15 @@ class Handler(SimpleHTTPRequestHandler):
             download = urllib.parse.parse_qs(target.query).get('download') == ['1']
             self.send_pdf(company, pdf, download)
             return
-        if target.path != '/api/disclosures':
+        if target.path not in ('/api/disclosures', '/api/report'):
             return super().do_GET()
         company = urllib.parse.parse_qs(target.query).get('company', [''])[0].strip()
         try:
             if not company or len(company) > 80:
                 raise LookupError('기업명을 입력해 주세요.')
             today = datetime.now(timezone(timedelta(hours=9))).date()
-            payload = lookup(company, today)
+            handler = build_report if target.path == '/api/report' else lookup
+            payload = handler(company, today)
             status = 200
         except LookupError as exc:
             payload, status = {'error': str(exc)}, 400
@@ -197,13 +304,20 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError
             data = urllib.parse.parse_qs(self.rfile.read(size).decode('ascii'), keep_blank_values=True, max_num_fields=2)
             company, agenda = data['company'][0], data['agenda'][0]
-            if company not in ('한국자산신탁', '한국금거래소', '토스뱅크', '한빛산업') or len(agenda) > 1000:
+            if not company.strip() or len(company) > 80 or len(agenda) > 1000:
                 raise ValueError
         except (ValueError, TypeError, KeyError):
             self.send_error(400)
             return
         try:
-            pdf = render_pdf(company, agenda)
+            automatic = None
+            if company not in STATIC_REPORTS:
+                automatic = build_report(company, datetime.now(timezone(timedelta(hours=9))).date())
+                company = automatic['company']
+            pdf = render_pdf(company, agenda, automatic)
+        except LookupError:
+            self.send_error(400)
+            return
         except (OSError, subprocess.SubprocessError):
             self.send_error(500)
             return
