@@ -18,8 +18,10 @@ import xml.etree.ElementTree as ET
 import zipfile
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
+from html import unescape
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from ai_review import MODEL, ReviewError, request_review
 
 ROOT = Path(__file__).resolve().parent
 API = 'https://opendart.fss.or.kr/api/'
@@ -28,20 +30,27 @@ PDF_LOCK = threading.Lock()
 PDF_LIFETIME = 15 * 60
 PDF_LIMIT = 12
 STATIC_REPORTS = {'한국자산신탁', '한국금거래소', '토스뱅크', '한빛산업'}
+AI_REPORTS = {}
+AI_SLOT = threading.BoundedSemaphore(1)
 
 
 class LookupError(Exception):
     pass
 
 
-def api_key():
-    key = os.getenv('OPENDART_API_KEY', '').strip()
+def local_setting(setting):
+    key = os.getenv(setting, '').strip()
     if not key and (ROOT / '.env').is_file():
         for line in (ROOT / '.env').read_text().splitlines():
             name, _, value = line.partition('=')
-            if name.strip() == 'OPENDART_API_KEY':
+            if name.strip() == setting:
                 key = value.strip()
                 break
+    return key
+
+
+def api_key():
+    key = local_setting('OPENDART_API_KEY')
     if not re.fullmatch(r'[A-Za-z0-9]{40}', key):
         raise LookupError('Mac 터미널에서 python3 server.py --setup-key를 실행해 인증키를 등록해 주세요.')
     return key
@@ -159,8 +168,8 @@ def annual_figures(key, code, year, basis):
     return values
 
 
-def build_report(company, today):
-    result = lookup(company, today)
+def build_report(company, today, result=None):
+    result = result or lookup(company, today)
     filings, code = result['filings'], result['code']
     key = api_key()
     profile = json.loads(fetch('company.json', key, corp_code=code))
@@ -231,6 +240,94 @@ def build_report(company, today):
     return {'company': result['company'], 'code': code, 'report': report}
 
 
+def evidence_documents(filings, key):
+    regular = [f for f in filings if re.search(r'사업보고서|반기보고서|분기보고서|감사보고서', f['title'])]
+    annual = [f for f in regular if re.search(r'사업보고서|감사보고서', f['title'])]
+    events = [f for f in filings if re.search(r'소송|판결|증자|감자|합병|회생|영업정지|공급계약|채무보증|담보제공', f['title'])]
+    selected = list({f['url']: f for f in regular[:1] + annual[:3] + events[:5]}.values())
+    documents = []
+    for filing in selected:
+        receipt = filing['url'][-14:]
+        payload = fetch('document.xml', key, rcept_no=receipt)
+        try:
+            with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+                parts = [member for member in archive.infolist() if member.file_size <= 16_000_000
+                         and member.filename.lower().endswith(('.xml', '.html', '.htm'))][:4]
+                raw = '\n'.join(archive.read(member).decode('utf-8-sig', errors='replace') for member in parts)
+        except zipfile.BadZipFile:
+            continue
+        raw = re.sub(r'</(?:TD|TE|TH)>', ' | ', raw, flags=re.I)
+        raw = re.sub(r'</(?:TR|P|TITLE|SUBTITLE|DIV)>', '\n', raw, flags=re.I)
+        lines = [line.strip() for line in unescape(re.sub(r'<[^>]+>', '', raw)).splitlines() if line.strip()]
+        if not lines:
+            continue
+        priority = re.compile(r'^(?:\d+\.?\s*)?(?:사업의 개요|주요 제품|영업의 현황|우발|약정사항|계류|특수관계자|충당부채|신탁계정대|재무위험|감사의견|핵심감사|재무상태표|포괄손익계산서|현금흐름표)')
+        if filing in regular:
+            windows = {}
+            for i, line in enumerate(lines):
+                match = priority.match(line) if len(line) <= 240 else None
+                if match:
+                    category = re.sub(r'^\d+\.?\s*', '', match[0])
+                    windows.setdefault(category, []).append(i)
+            chunks = ['\n'.join(lines[:240])[:8500]]
+            for indices in windows.values():
+                # The first hit may be a contents entry. Keep a later hit as well.
+                for i in dict.fromkeys([indices[0], indices[min(1, len(indices) - 1)]]):
+                    chunks.append('\n'.join(lines[i:i + 65])[:1600])
+            excerpts = '\n\n'.join(chunks)[:40000]
+        else:
+            excerpts = '\n'.join(lines)[:9000]
+        documents.append({'id': receipt, 'title': filing['title'].strip(), 'date': filing['date'], 'excerpt': excerpts})
+    return documents
+
+
+def build_ai_report(company, agenda, today):
+    key = local_setting('OPENAI_API_KEY')
+    if not key:
+        raise ReviewError('사용자 본인의 OpenAI API 키를 등록해 주세요. 터미널에서 python3 server.py --setup-ai-key를 실행하면 됩니다.')
+    model = local_setting('OPENAI_MODEL') or MODEL
+    result = lookup(company, today)
+    base = build_report(company, today, result)
+    report = base['report']
+    documents = evidence_documents(result['filings'], api_key())
+    if not documents:
+        raise ReviewError('검토할 DART 공시 원문을 확보하지 못했습니다.')
+    evidence = {'company': base['company'], 'as_of': today.isoformat(), 'agenda': agenda,
+                'financial_api': {k: report[k] for k in ('scope', 'years', 'trendYears', 'balance', 'income', 'cash', 'trend')},
+                'documents': documents}
+    review, usage = request_review(key, model, evidence)
+    refs = {d['id']: (index, d['title']) for index, d in enumerate(documents, 1)}
+
+    def cited(text, ids):
+        confirmed = sorted({refs[i][0] for i in ids if i in refs})
+        return text + (' ' + ' '.join(f'[{n}]' for n in confirmed) if text and confirmed else '')
+
+    def field(name):
+        data = review[name]
+        return cited(data['text'], data['sources'])
+
+    for name in ('overview', 'business', 'opinion', 'audit'):
+        report[name] = field(name) or (report[name] if name == 'overview' else '')
+    report['risks'] = [[r['topic'], cited(r['fact'], r['sources']), r['question']] for r in review['risks']]
+    report['riskHeading'] = '재무제표 주석과 업종별 위험'
+    report['litigation'] = [[r['case'], r['status'], r['amount'], r['final'],
+                             cited('공시', r['sources']) if r['sources'] else ''] for r in review['litigation']]
+    report['followup'] = review['followup']
+    report['sources'] = [(f'[{n}] {title}', receipt) for receipt, (n, title) in refs.items()]
+    finance = review['finance']
+    if not report['balance'] and finance['years']:
+        report['scope'] = (finance['basis'] or '공시 원문 기반') + ' · AI 추출 재무'
+        report['years'], report['trendYears'] = finance['years'], finance['trend_years']
+        for field_name in ('balance', 'income', 'cash', 'trend'):
+            width = len(report['trendYears'] if field_name == 'trend' else report['years']) + 1
+            report[field_name] = [row for row in finance[field_name] if len(row) == width]
+    raw_agenda = review['agenda']['opinion']
+    base['agendaReview'] = {'opinion': cited(raw_agenda['text'], raw_agenda['sources']), 'checks': review['agenda']['checks']}
+    report['evidenceScope'] = f'검토일 {today.isoformat()} · DART 원문 발췌 {len(documents)}건 · AI 검토'
+    base['usage'] = {name: usage.get(name, 0) for name in ('input_tokens', 'output_tokens')}
+    return base
+
+
 def render_pdf(company, agenda, automatic=None):
     browser = os.getenv('PDF_BROWSER') or shutil.which('chromium') or shutil.which('google-chrome')
     if not browser:
@@ -283,15 +380,19 @@ class Handler(SimpleHTTPRequestHandler):
             payload, status = {'error': str(exc)}, 400
         except (ValueError, TypeError, KeyError, OSError):
             payload, status = {'error': 'OpenDART 응답을 읽지 못했습니다.'}, 502
+        self.send_json(payload, status)
+
+    def send_json(self, payload, status=200):
         body = json.dumps(payload, ensure_ascii=False).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Cache-Control', 'no-store')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path != '/api/report.pdf':
+        if self.path not in ('/api/report.pdf', '/api/ai-report'):
             self.send_error(404)
             return
         if (self.headers.get_content_type() != 'application/x-www-form-urlencoded'
@@ -302,16 +403,32 @@ class Handler(SimpleHTTPRequestHandler):
             size = int(self.headers.get('Content-Length', '0'))
             if not 0 < size <= 16384:
                 raise ValueError
-            data = urllib.parse.parse_qs(self.rfile.read(size).decode('ascii'), keep_blank_values=True, max_num_fields=2)
+            data = urllib.parse.parse_qs(self.rfile.read(size).decode('ascii'), keep_blank_values=True, max_num_fields=3)
             company, agenda = data['company'][0], data['agenda'][0]
             if not company.strip() or len(company) > 80 or len(agenda) > 1000:
                 raise ValueError
         except (ValueError, TypeError, KeyError):
             self.send_error(400)
             return
+        if self.path == '/api/ai-report':
+            origin = self.headers.get('Origin')
+            if origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'):
+                self.send_json({'error': '로컬 보고서 화면에서 AI 검토를 실행해 주세요.'}, 403)
+                return
+            self.create_ai_report(company, agenda)
+            return
         try:
             automatic = None
-            if company not in STATIC_REPORTS:
+            analysis_id = data.get('analysis', [''])[0]
+            if analysis_id:
+                with PDF_LOCK:
+                    cached = AI_REPORTS.get(analysis_id)
+                if not cached or cached[0] <= time.monotonic() or cached[1] != agenda or cached[2]['code'] != company:
+                    self.send_error(410)
+                    return
+                automatic = cached[2]
+                company = automatic['company']
+            elif company not in STATIC_REPORTS:
                 automatic = build_report(company, datetime.now(timezone(timedelta(hours=9))).date())
                 company = automatic['company']
             pdf = render_pdf(company, agenda, automatic)
@@ -341,6 +458,31 @@ class Handler(SimpleHTTPRequestHandler):
             return
         self.send_pdf(company, pdf, download=True)
 
+    def create_ai_report(self, company, agenda):
+        if not AI_SLOT.acquire(blocking=False):
+            self.send_json({'error': '진행 중인 AI 검토가 끝난 후 다시 시도해 주세요.'}, 409)
+            return
+        try:
+            result = build_ai_report(company, agenda, datetime.now(timezone(timedelta(hours=9))).date())
+        except (LookupError, ReviewError) as exc:
+            self.send_json({'error': str(exc)}, 400)
+            return
+        except (ValueError, TypeError, KeyError, OSError):
+            self.send_json({'error': '공시 또는 AI 응답을 읽지 못했습니다.'}, 502)
+            return
+        finally:
+            AI_SLOT.release()
+        token = secrets.token_hex(16)
+        now = time.monotonic()
+        with PDF_LOCK:
+            for old in list(AI_REPORTS):
+                if AI_REPORTS[old][0] <= now:
+                    del AI_REPORTS[old]
+            if len(AI_REPORTS) >= PDF_LIMIT:
+                del AI_REPORTS[next(iter(AI_REPORTS))]
+            AI_REPORTS[token] = (now + PDF_LIFETIME, agenda, result)
+        self.send_json({**result, 'analysisId': token})
+
     def send_pdf(self, company, pdf, download):
         filename = urllib.parse.quote(company + '-사전검토.pdf')
         disposition = 'attachment' if download else 'inline'
@@ -366,9 +508,24 @@ def setup_key():
     print('로컬 .env 파일에 인증키를 저장했습니다.')
 
 
+def setup_ai_key():
+    key = getpass.getpass('본인의 OpenAI API 키: ').strip()
+    if not re.fullmatch(r'sk-[a-zA-Z0-9_-]{16,}', key):
+        sys.exit('OpenAI API 키 형식을 확인해 주세요.')
+    path = ROOT / '.env'
+    existing = path.read_text(encoding='utf-8').splitlines() if path.exists() else []
+    lines = [line for line in existing if line.partition('=')[0].strip() != 'OPENAI_API_KEY']
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=ROOT, prefix='.env.', delete=False) as config:
+        config.write('\n'.join([*lines, f'OPENAI_API_KEY={key}']) + '\n')
+    os.replace(config.name, path)
+    print('OpenAI API 키를 로컬 .env에 저장했습니다.')
+
+
 if __name__ == '__main__':
     if sys.argv[1:] == ['--setup-key']:
         setup_key()
+    elif sys.argv[1:] == ['--setup-ai-key']:
+        setup_ai_key()
     else:
         with ThreadingHTTPServer(('127.0.0.1', 8765), Handler) as server:
             print('http://127.0.0.1:8765', flush=True)

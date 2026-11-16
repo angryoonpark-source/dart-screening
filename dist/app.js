@@ -13,6 +13,7 @@ const pdfActions = document.querySelector('#pdf-actions');
 const pdfButton = pdfForm.querySelector('button');
 const renderData = document.querySelector('#pdf-render-data');
 const pdfRender = renderData ? JSON.parse(renderData.textContent) : null;
+const aiButton = document.querySelector('#ai-review');
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -68,6 +69,7 @@ function renderCompanyPages(company, report) {
 
   const years = ['항목', ...(report.years ?? ['2024년', '2025년'])];
   const overview = page(company + ' 기업 분석');
+  if (report.evidenceScope) overview.append(element('p', report.evidenceScope, 'subtitle'));
   section(overview, '종합 의견', element('p', report.opinion));
   section(overview, '회사 개요', element('p', report.overview));
   section(overview, '사업 및 영업 개요', element('p', report.business));
@@ -148,7 +150,8 @@ form.addEventListener('submit', async (event) => {
   const isDemo = company === '한빛산업';
   let automatic = pdfRender?.automatic;
   const agenda = agendaInput.value.trim();
-  if (!isKait && !matched && !isDemo) {
+  const useAI = event.submitter === aiButton;
+  if (useAI || (!isKait && !matched && !isDemo)) {
     const notice = document.querySelector('#lookup-status');
     const submit = form.querySelector('button[type="submit"]');
     if (!automatic) {
@@ -156,22 +159,30 @@ form.addEventListener('submit', async (event) => {
         notice.textContent = '새 기업 보고서는 로컬 서버에서 열어 주세요.';
         return;
       }
-      notice.textContent = 'OpenDART에서 재무제표와 공시를 가져오는 중입니다…';
+      notice.textContent = useAI ? '공시 원문을 수집하고 AI가 검토 중입니다…'
+        : 'OpenDART에서 재무제표와 공시를 가져오는 중입니다…';
       submit.disabled = true;
+      aiButton.disabled = true;
       try {
         const query = new URLSearchParams({ company });
-        const response = await fetch('api/report?' + query);
+        const response = useAI
+          ? await fetch('api/ai-report', { method: 'POST', body: new URLSearchParams({ company, agenda }) })
+          : await fetch('api/report?' + query);
         automatic = await response.json();
         if (!response.ok) {
           notice.textContent = automatic.error;
           return;
         }
-        notice.textContent = automatic.company + '의 기본 검토를 표시했습니다.';
+        notice.textContent = automatic.usage
+          ? automatic.company + ' AI 검토 완료 · 입력 ' + automatic.usage.input_tokens
+            + ' / 출력 ' + automatic.usage.output_tokens + ' 토큰'
+          : automatic.company + '의 기본 검토를 표시했습니다.';
       } catch {
         notice.textContent = '기업 보고서를 불러오지 못했습니다.';
         return;
       } finally {
         submit.disabled = false;
+        aiButton.disabled = false;
       }
     }
   }
@@ -179,19 +190,20 @@ form.addEventListener('submit', async (event) => {
   const reportCompany = automatic?.company ?? (isKait ? '한국자산신탁' : matched?.[0] ?? '한빛산업');
   pdfForm.elements.company.value = automatic?.code ?? reportCompany;
   pdfForm.elements.agenda.value = agenda;
+  pdfForm.elements.analysis.value = automatic?.analysisId ?? '';
   pdfStatus.hidden = true;
   pdfActions.hidden = true;
-  const review = agendaReview(isKait, agenda);
-  if (matched || automatic) {
+  const review = automatic?.agendaReview ?? agendaReview(isKait, agenda);
+  if ((matched || automatic) && !automatic?.agendaReview) {
     review.opinion = '입력된 거래 조건을 확인한 뒤 기업 검토본의 관련 위험과 대조합니다. ' + (automatic?.report ?? matched[1]).followup;
   }
-  kaitPages.forEach((page) => { page.hidden = !isKait; });
-  demoPages.forEach((page) => { page.hidden = !isDemo; });
+  kaitPages.forEach((page) => { page.hidden = !isKait || Boolean(automatic); });
+  demoPages.forEach((page) => { page.hidden = !isDemo || Boolean(automatic); });
   renderCompanyPages(reportCompany, automatic?.report ?? matched?.[1]);
   agendaPage.hidden = !agenda;
   agendaText.textContent = agenda;
   document.querySelector('#agenda-opinion').textContent = review.opinion;
-  document.querySelector('#agenda-source').hidden = !isKait;
+  document.querySelector('#agenda-source').hidden = !isKait || Boolean(automatic);
 
   agendaChecks.replaceChildren(...review.checks.map((question) => {
     const item = document.createElement('li');
@@ -224,7 +236,9 @@ pdfForm.addEventListener('submit', async (event) => {
       body: data,
     });
     if (!response.ok) {
-      pdfStatus.textContent = 'PDF 생성 요청에 실패했습니다. 서버 응답 ' + response.status + '.';
+      pdfStatus.textContent = response.status === 410
+        ? 'AI 검토 결과의 저장 시간이 지났습니다.'
+        : 'PDF 생성 요청에 실패했습니다. 서버 응답 ' + response.status + '.';
       return;
     }
     const { file } = await response.json();
