@@ -1,0 +1,192 @@
+:root {
+  color-scheme: light;
+  font-family: "Inter", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  color: #152a29;
+  background: #f2f5f3;
+  font-synthesis: none;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+.shell { max-width: 1280px; margin: 0 auto; padding-inline: 32px; }
+.masthead { background: #103936; color: #f4fbf7; }
+.brand { min-height: 64px; display: flex; align-items: center; gap: 13px; font-size: 15px; font-weight: 700; }
+.mark { display: grid; place-items: center; width: 29px; height: 29px; background: #d9f1e4; color: #154640; border-radius: 7px; font-size: 19px; }
+.brand-divider { height: 16px; border-left: 1px solid #66847f; }
+.context { font-size: 13px; font-weight: 500; color: #d3e3df; }
+.intro { padding: 45px 0 30px; }
+.eyebrow { color: #346960; font-weight: 750; font-size: 13px; }
+h1 { font-size: clamp(33px, 5vw, 48px); line-height: 1.17; margin: 9px 0 12px; letter-spacing: -.055em; }
+.intro p { color: #526561; margin: 0; line-height: 1.65; }
+.layout { display: grid; grid-template-columns: 320px minmax(0,1fr); gap: 24px; align-items: start; padding-bottom: 48px; }
+.panel, .paper, .preview { background: white; border: 1px solid #dce5df; border-radius: 12px; }
+.settings { padding: 23px; }
+.settings h2, .toolbar h2 { font-size: 17px; margin: 0; }
+label { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; margin: 23px 0 9px; }
+.optional { font-size: 11px; color: #4e645e; background: #edf2ef; padding: 3px 7px; border-radius: 4px; }
+input, textarea, button { font: inherit; }
+input, textarea { width: 100%; border: 1px solid #cddbd4; border-radius: 7px; padding: 11px; color: inherit; background: #fbfcfb; font-size: 14px; }
+textarea { resize: vertical; line-height: 1.6; }
+:focus-visible { outline: 2px solid #22816d; outline-offset: 3px; }
+button { cursor: pointer; border-radius: 7px; font-weight: 700; font-size: 13px; }
+.primary { margin-top: 18px; width: 100%; padding: 12px; border: 0; color: white; background: #176358; display: flex; justify-content: space-between; }
+.primary:hover { background: #124d46; }
+.hint, .source { color: #536660; font-size: 12px; line-height: 1.65; margin: 14px 0 0; }
+.preview { overflow: hidden; }
+.toolbar { padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #dce5df; }
+.toolbar button { color: #24584e; background: white; border: 1px solid #cddbd4; padding: 8px 11px; }
+.toolbar button:hover { background: #edf5ef; }
+.report { background: #e9efeb; padding: 20px; display: grid; gap: 16px; }
+.paper { padding: clamp(18px, 3vw, 36px); border-radius: 7px; }
+.paper h2 { font-size: clamp(22px, 3.5vw, 33px); letter-spacing: -.045em; margin: 0 0 11px; overflow-wrap: anywhere; }
+.report-meta { display: flex; flex-wrap: wrap; gap: 9px; justify-content: space-between; align-items: center; margin-bottom: 15px; color: #526561; font-size: 12px; }
+.sample { background: #e4f2ed; color: #255d52; font-weight: 700; border-radius: 4px; padding: 5px 8px; }
+.paper h3 { font-size: 15px; margin: 23px 0 8px; }
+.paper p, .paper li { line-height: 1.72; }
+.paper p { margin: 0; }
+.paper .subtitle { color: #536660; font-size: 13px; }
+.paper .source { margin-top: 18px; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
+.metrics div { background: #edf5f1; padding: 12px; border-radius: 6px; display: grid; gap: 6px; }
+.metrics span { color: #42645c; font-size: 12px; }
+.metrics strong { font-size: clamp(15px, 2vw, 21px); }
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+th, td { padding: 10px 8px; border-bottom: 1px solid #e1e9e3; }
+thead { background: #edf5f1; }
+.watch { color: #8a3526; font-weight: 700; }
+.paper .comparison-note { margin-block: 8px; font-size: 13px; }
+.company-facts { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px 16px; margin: 0; font-size: 13px; }
+.company-facts div { display: flex; align-items: baseline; gap: 8px; }
+.company-facts dt { font-weight: 700; white-space: nowrap; }
+.company-facts dd { margin: 0; }
+.financial-tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.financial-tables th, .financial-tables td { padding-inline: 5px; }
+.financial-tables td { white-space: nowrap; }
+.numeric-table tr > :not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.notes-table th:first-child { width: 17%; word-break: keep-all; }
+.notes-table th:last-child { width: 28%; }
+.litigation-table { margin-top: 12px; }
+.preview .pdf-status { margin: 10px 20px; }
+.pdf-status a + a { margin-left: 12px; }
+.litigation-table th[scope="row"] { white-space: nowrap; }
+.agenda-text { background: #edf5f1; padding: 10px 12px; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.paper ul { margin: 0; padding-left: 1.3em; }
+.coverage { margin-top: 20px; border-top: 1px solid #dce5df; padding-top: 13px; font-size: 13px; }
+.coverage summary { color: #24584e; cursor: pointer; font-weight: 700; }
+.coverage[open] ul, .paper .coverage p { margin-top: 10px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 800px) { .shell { padding-inline: 18px; } .layout { grid-template-columns: 1fr; } }
+@media (max-width: 450px) { .report { padding: 9px; } .metrics { grid-template-columns: 1fr; } .toolbar { padding-inline: 12px; } }
+@media screen and (max-width: 600px) { .company-facts, .financial-tables { grid-template-columns: 1fr; } }
+@page { size: A4; margin: 17mm; }
+@media print {
+  #disclosures, .pdf-status { display: none; }
+  body { background: white; }
+  .masthead, .intro, .settings, .toolbar, .coverage { display: none; }
+  .shell, .layout, .report { display: block; max-width: none; padding: 0; background: white; }
+  .preview, .paper { border: 0; overflow: visible; }
+  .paper { padding: 0; }
+  .paper h3 { margin-top: 15px; }
+  .paper p, .paper li { font-size: 12px; line-height: 1.55; }
+  .paper .source { margin-top: 8px; }
+  .financial-tables { break-inside: avoid; }
+  .financial-tables table { font-size: 11px; }
+  th, td { padding-block: 5px; }
+  .paper + .paper { break-before: page; }
+  .metrics, tr { break-inside: avoid; }
+
+  /* A4 report styles for the Korean Asset Investment Trust review. */
+  :root:has(.paper:is([data-kait], [data-company-report]):not([hidden])) { background: white; }
+  .paper:is([data-kait], [data-company-report]) {
+    color: #21312e;
+    font-size: 9.5pt;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .paper:is([data-kait], [data-company-report]) .report-meta {
+    margin-bottom: 4mm;
+    padding-bottom: 2mm;
+    border-bottom: 1px solid #c8d9d3;
+    font-size: 8.5pt;
+    break-after: avoid;
+  }
+  .paper:is([data-kait], [data-company-report]) .sample { padding: 1mm 2mm; }
+  .paper:is([data-kait], [data-company-report]) h2 {
+    margin: 0 0 2mm;
+    color: #123f37;
+    font-size: 22pt;
+    line-height: 1.18;
+    break-after: avoid;
+  }
+  .paper:is([data-kait], [data-company-report]) h3 {
+    margin: 4mm 0 1.5mm;
+    color: #21574c;
+    font-size: 11.5pt;
+    line-height: 1.3;
+    break-after: avoid;
+  }
+  .paper:is([data-kait], [data-company-report]) p {
+    font-size: inherit;
+    line-height: 1.52;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .paper:is([data-kait], [data-company-report]) p + p { margin-top: 1.4mm; }
+  .paper:is([data-kait], [data-company-report]) .company-facts {
+    grid-template-columns: 1fr 1.7fr;
+    gap: 1.5mm 5mm;
+    padding: 2mm 2.5mm;
+    background: #f2f7f5;
+    font-size: inherit;
+    break-inside: avoid;
+  }
+  .paper:is([data-kait], [data-company-report]) .company-facts dt { min-width: 4em; }
+  .paper:is([data-kait], [data-company-report]) .financial-tables { gap: 5mm; }
+  .paper:is([data-kait], [data-company-report]) .comparison-note { margin-block: 1.5mm; }
+  .paper:is([data-kait], [data-company-report]) h3 + .comparison-note {
+    margin: 0 0 1.5mm;
+    color: #526561;
+    font-size: 8.5pt;
+    break-after: avoid;
+  }
+  .paper:is([data-kait], [data-company-report]) .source {
+    margin-top: 2mm;
+    font-size: 8.5pt;
+  }
+  .paper:is([data-kait], [data-company-report]) a { color: #235b50; text-underline-offset: 1px; }
+  .paper:is([data-kait], [data-company-report]) table {
+    table-layout: fixed;
+    font-size: 9.25pt;
+    line-height: 1.42;
+  }
+  .paper:is([data-kait], [data-company-report]) th, .paper:is([data-kait], [data-company-report]) td {
+    padding: 1.6mm 2mm;
+    border-bottom: 1px solid #d7e3de;
+    vertical-align: top;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .paper:is([data-kait], [data-company-report]) thead {
+    background: #e6f0ec;
+    color: #214d43;
+    break-inside: avoid;
+    break-after: avoid;
+  }
+  .paper:is([data-kait], [data-company-report]) tbody th { background: #f4f8f6; }
+  .paper:is([data-kait], [data-company-report]) table:not(.notes-table, .litigation-table) tr > :first-child { width: 42%; }
+  .paper:is([data-kait], [data-company-report]) table:not(.notes-table, .litigation-table):has(thead) tr > :not(:first-child) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .paper:is([data-kait], [data-company-report]) .financial-tables table { font-size: 9pt; }
+  .paper:is([data-kait], [data-company-report]) .financial-tables th, .paper:is([data-kait], [data-company-report]) .financial-tables td { padding-inline: 1.5mm; }
+  .paper:is([data-kait], [data-company-report]) .financial-tables section + section tr > :first-child { width: 34%; }
+  .paper:is([data-kait], [data-company-report]) .notes-table, .paper:is([data-kait], [data-company-report]) .litigation-table { margin-top: 3mm; }
+  .paper:is([data-kait], [data-company-report]) .notes-table th:first-child { width: 16%; }
+  .paper:is([data-kait], [data-company-report]) .notes-table thead th:last-child { width: 30%; }
+  .paper:is([data-kait], [data-company-report]) .litigation-table thead th:nth-child(1) { width: 19%; }
+  .paper:is([data-kait], [data-company-report]) .litigation-table thead th:nth-child(2) { width: 25%; }
+  .paper:is([data-kait], [data-company-report]) .litigation-table thead th:nth-child(3) { width: 27%; }
+  .paper:is([data-kait], [data-company-report]) .litigation-table thead th:nth-child(4) { width: 18%; }
+  .paper:is([data-kait], [data-company-report]) .litigation-table thead th:nth-child(5) { width: 11%; }
+}

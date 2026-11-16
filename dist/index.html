@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기업 스크리닝</title>
+<link rel="stylesheet" href="style.css">
+<script src="company-reports.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="masthead"><div class="shell brand"><span class="mark" aria-hidden="true">▥</span> 기업 스크리닝 <span class="brand-divider"></span><span class="context">내부 의사결정</span></div></header>
+<main class="shell">
+  <div class="intro">
+    <span class="eyebrow">DART 공시 기반</span>
+    <h1>기업 사전 검토</h1>
+    <p>기업의 재무 상태와 우발채무를 살펴보고, 정밀검토 전에 확인할 사항을 정리합니다.</p>
+  </div>
+  <div class="layout">
+    <form class="panel settings" id="analysis-form">
+      <h2>분석 설정</h2>
+      <label for="company">기업명</label>
+      <input id="company" list="report-companies" required value="한국자산신탁" placeholder="기업명을 입력하세요" maxlength="80">
+      <datalist id="report-companies"><option value="한국자산신탁"><option value="한국금거래소"><option value="토스뱅크"><option value="한빛산업"></datalist>
+      <label for="agenda">검토 안건 <span class="optional">선택</span></label>
+      <textarea id="agenda" rows="4" maxlength="1000" placeholder="예: 계열사 차입금 100억 원에 지급보증을 제공하려 합니다."></textarea>
+      <button class="primary" type="submit">보고서 미리보기 <span aria-hidden="true">→</span></button>
+      <p class="hint">한국자산신탁, 한국금거래소, 토스뱅크의 실공시 검토본을 볼 수 있습니다. 한빛산업은 가상 예시입니다.</p>
+      <button class="primary" id="lookup" type="button" hidden>DART 공시 조회 <span aria-hidden="true">→</span></button>
+      <p class="hint" id="lookup-status" role="status"></p>
+    </form>
+    <section class="preview" aria-labelledby="preview-title">
+      <div class="toolbar">
+        <h2 id="preview-title">보고서 미리보기</h2>
+        <form id="pdf-form" method="post" action="api/report.pdf" accept-charset="UTF-8">
+          <input type="hidden" name="company" value="한국자산신탁">
+          <input type="hidden" name="agenda" value="">
+          <button type="submit">PDF 저장</button>
+        </form>
+      </div>
+      <p id="pdf-status" class="hint pdf-status" role="status" hidden></p>
+      <div id="pdf-actions" class="pdf-status" hidden>
+        <a id="pdf-open" target="_blank" rel="noopener">PDF 열기</a>
+        <a id="pdf-download">파일 다운로드</a>
+      </div>
+      <div class="report" id="report">
+        <article class="paper" data-kait>
+          <div class="report-meta"><span class="sample">DART 공시 검토본</span><span>검토일 2026.11.16 · 연결 기준 2026.06.30</span></div>
+          <h2>한국자산신탁 기업 분석</h2>
+          <p class="subtitle">2026년 반기보고서와 이후 주요 공시 기준</p>
+          <h3>종합 의견</h3>
+          <p>상반기 이익과 현금흐름이 개선됐으나, 신탁계정대 잔액이 줄어드는 동안 대손충당금 비율은 20.1%에서 28.6%로 상승했습니다. 회수 전망이 악화된 사업장과 차입금 상환 일정을 우선 대조합니다.</p>
+          <h3>회사 개요</h3>
+          <dl class="company-facts">
+            <div><dt>설립</dt><dd>2001.03.20</dd></div>
+            <div><dt>상장</dt><dd>유가증권시장 123890 · 2016.07.13</dd></div>
+            <div><dt>본사</dt><dd>서울 강남구</dd></div>
+            <div><dt>최대주주</dt><dd>엠디엠 28.76% · 특수관계인 포함 54.24%</dd></div>
+          </dl>
+          <h3>사업 및 영업 개요</h3>
+          <p><strong>부동산신탁</strong> · 토지 개발과 분양을 관리하거나 담보 부동산을 관리하고 보수를 받습니다. 차입형 토지신탁은 사업비에 회사 자금이 투입돼 분양·정산 일정에 따라 자금 회수 속도가 달라집니다. 반기 말 수탁고 약 23조 원, 상반기 신규 수수료 약정액 915억 원 중 차입형 토지신탁이 785억 원입니다.</p>
+          <p><strong>기타 사업</strong> · 리츠·PFV 자산관리와 대리사무를 수행합니다. 연결 대상 한국자산캐피탈은 대출·시설대여 등 여신금융을 영위합니다.</p>
+          <div class="financial-tables">
+          <section>
+          <h3>재무상태표 요약</h3>
+          <p class="comparison-note">연결 잔액 · 단위 억 원</p>
+          <table aria-label="한국자산신탁 연결 재무상태표 요약">
+            <thead><tr><th scope="col">항목</th><th scope="col">2025년 말</th><th scope="col">2026년 6월 말</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">자산총계</th><td>17,382</td><td>17,125</td></tr>
+              <tr><th scope="row">현금 및 예치금</th><td>1,095</td><td>1,387</td></tr>
+              <tr><th scope="row">부채총계</th><td>6,549</td><td>6,120</td></tr>
+              <tr><th scope="row">차입부채</th><td>5,792</td><td>5,383</td></tr>
+              <tr><th scope="row">자본총계</th><td>10,833</td><td>11,005</td></tr>
+              <tr><th scope="row">부채비율</th><td>60.5%</td><td>55.6%</td></tr>
+            </tbody>
+          </table>
+          </section>
+          <section>
+          <h3>손익계산서 요약</h3>
+          <p class="comparison-note">연결 상반기 누적 · 단위 억 원</p>
+          <table aria-label="한국자산신탁 연결 손익계산서 요약">
+            <thead><tr><th scope="col">항목</th><th scope="col">2025년</th><th scope="col">2026년</th><th scope="col">증감률</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">영업수익</th><td>1,041</td><td>1,476</td><td>+41.7%</td></tr>
+              <tr><th scope="row">수수료수익</th><td>348</td><td>386</td><td>+10.9%</td></tr>
+              <tr><th scope="row">이자수익</th><td>602</td><td>578</td><td class="watch">−4.0%</td></tr>
+              <tr><th scope="row">영업비용</th><td>781</td><td>1,058</td><td>+35.4%</td></tr>
+              <tr><th scope="row">영업이익</th><td>260</td><td>418</td><td>+60.7%</td></tr>
+              <tr><th scope="row">순이익</th><td>238</td><td>355</td><td>+49.4%</td></tr>
+            </tbody>
+          </table>
+          </section>
+          </div>
+          <h3>전년 대비 유의할 변화</h3>
+          <p>금융상품 평가·처분 순이익은 29억 원에서 328억 원으로 늘었습니다. 같은 기간 이자수익은 감소했고, 신용손실충당금 전입액은 <strong class="watch">275억 원에서 557억 원으로 증가</strong>했습니다.</p>
+          <p class="source"><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001649">2026년 반기보고서 · 사업의 내용과 연결재무제표</a> · <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001022">2025년 사업보고서</a> · <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250318001253">2024년 사업보고서</a></p>
+        </article>
+        <article class="paper" data-kait>
+          <div class="report-meta"><span class="sample">DART 공시 검토본</span><span>한국자산신탁 · 연결 기준</span></div>
+          <h2>현금흐름·실적 추이·감사</h2>
+          <p class="subtitle">확인한 공시에 기재된 값만 표시합니다.</p>
+          <h3>현금흐름표 요약</h3>
+          <p class="comparison-note">연결 상반기 · 단위 억 원</p>
+          <table aria-label="연결 현금흐름표 요약">
+            <thead><tr><th scope="col">항목</th><th scope="col">2025년 상반기</th><th scope="col">2026년 상반기</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">영업활동 순현금흐름</th><td>855</td><td>1,682</td></tr>
+              <tr><th scope="row">투자활동 순현금흐름</th><td>−699</td><td>−647</td></tr>
+              <tr><th scope="row">재무활동 순현금흐름</th><td>975</td><td>−543</td></tr>
+              <tr><th scope="row">기말 현금성자산</th><td>1,341</td><td>1,384</td></tr>
+            </tbody>
+          </table>
+          <p class="comparison-note">신탁계정대 회수액이 831억 원에서 1,967억 원으로 늘었습니다. 이 회수 수준의 지속 가능성을 사업장별로 확인합니다.</p>
+          <p class="source"><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001649">반기보고서 · 연결현금흐름표와 신탁계정대 주석</a></p>
+          <h3>최근 3개년 실적</h3>
+          <p class="comparison-note">연결 연간 · 단위 억 원</p>
+          <table aria-label="최근 3개년 연결 실적">
+            <thead><tr><th scope="col">항목</th><th scope="col">2023년</th><th scope="col">2024년</th><th scope="col">2025년</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">영업수익</th><td>2,591</td><td>2,264</td><td>2,043</td></tr>
+              <tr><th scope="row">영업이익</th><td>1,167</td><td>518</td><td>342</td></tr>
+              <tr><th scope="row">순이익</th><td>1,296</td><td>374</td><td>494</td></tr>
+            </tbody>
+          </table>
+          <p class="source"><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001022">2025년 사업보고서</a> · <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250318001253">2024년 사업보고서</a></p>
+          <h3>감사·회계 유의사항</h3>
+          <table aria-label="감사 및 회계 확인">
+            <tbody>
+              <tr><th scope="row">2025년 연결 감사의견</th><td>한영회계법인 · 적정</td></tr>
+              <tr><th scope="row">핵심감사사항</th><td>대출채권 기대신용손실 평가, 토지신탁보수의 발생 여부와 기간 귀속</td></tr>
+              <tr><th scope="row">2026년 반기 연결 검토결론</th><td></td></tr>
+              <tr><th scope="row">계속기업 관련 중요한 불확실성</th><td>2025년 연결 감사 공시상 해당사항 없음</td></tr>
+              <tr><th scope="row">재무제표 재작성</th><td>2026년 반기보고서상 해당사항 없음</td></tr>
+            </tbody>
+          </table>
+          <p class="source"><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001649">반기보고서 · 외부감사와 기타 재무에 관한 사항</a></p>
+        </article>
+        <article class="paper" data-kait>
+          <div class="report-meta"><span class="sample">DART 공시 검토본</span><span>한국자산신탁 · 연결 기준</span></div>
+          <h2>업종별 위험과 재무제표 주석</h2>
+          <h3>부동산신탁 핵심 지표</h3>
+          <p>반기 말 수탁고 약 23조 원 중 차입형은 약 2.2조 원입니다. 상반기 신규 수수료 약정액의 약 86%가 차입형에 집중돼 있고, 신탁계정대 충당금 설정률은 전년 말 20.1%에서 28.6%로 상승했습니다. 신규 수주와 기존 사업장 회수 전망을 함께 살핍니다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001649">반기보고서 · 사업의 내용과 연결 주석</a></p>
+          <table class="notes-table" aria-label="한국자산신탁의 주석과 수시공시 분석">
+            <thead><tr><th scope="col">항목</th><th scope="col">공시에서 확인한 사실</th><th scope="col">정밀검토 질문</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">신탁계정대</th><td>총액은 2023년 말 4,688억 → 2024년 말 8,191억 → 2025년 말 8,026억 → 반기 말 7,056억 원. 상반기 997억 원 투입, 1,967억 원 회수. 대손충당금은 전년 말 1,612억 → 2,019억 원.<br><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001649">반기보고서 · 신탁계정대 주석</a> · <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250318001253">2024년 사업보고서</a></td><td>어느 사업장에서 충당금이 늘었나? 분양률, 잔여 공사비, 회수 순위와 예상 시점을 확인합니다.</td></tr>
+              <tr><th scope="row">유동성과 담보</th><td>현금성자산 892억 → 1,384억 원. 1년 내 차입금·사채 계약상 유출액 4,137억 원 중 1,882억 원은 6개월 이내입니다. 일부 신탁사업의 비용상환청구권을 차입 담보로 제공했습니다.<br><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001649">반기보고서 · 주석 4, 26, 28</a></td><td>월별 회수액, 미사용 조달한도와 차환 일정은 상환액을 감당할 수 있나? 담보가 설정된 회수액을 확인합니다.</td></tr>
+              <tr><th scope="row">책임준공·보증</th><td>정비사업 관련 4건의 보증 한도 1,833억 원, 관련 대출잔액 681억 원. 책임준공 의무가 있는 2건의 관련 대출잔액은 569억 원입니다. 회사는 해당 손해배상 위험을 낮게 평가했습니다. 별도로 통화선도 채무 관련 자금보충약정이 있습니다.<br><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001649">반기보고서 · 주석 26</a></td><td>준공기한과 공정률은 어떤가? 책임준공·자금보충 지급 조건과 필요 자금을 확인합니다.</td></tr>
+              <tr><th scope="row">특수관계자 거래</th><td>원트웬티파이브PFV 시행 사업의 수분양자 대상 대출 약정 843억 원, 엠디엠자산운용이 운용하는 펀드의 신탁업자에 대한 한도대출 약정 50억 원. 관계기업 투자조합에 상반기 6.4억 원 출자 및 6.4억 원 회수 공시.<br><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001649">반기보고서 · 주석 26, 29</a></td><td>각 약정의 실제 실행 잔액과 만기, 담보·보증 조건 및 추가 출자 의무를 확인합니다.</td></tr>
+            </tbody>
+          </table>
+        </article>
+        <article class="paper" data-kait>
+          <div class="report-meta"><span class="sample">DART 공시 검토본</span><span>한국자산신탁 · 검토일 2026.11.16</span></div>
+          <h2>주요 소송 현황</h2>
+          <p>반기 말 신탁사업 관련 피소 369건, 소송금액 약 5,460억 원. 아래 표는 반기 이후 확인한 개별 주요 공시입니다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001649">반기보고서 · 주석 27</a></p>
+          <table class="litigation-table" aria-label="한국자산신탁 주요 소송 현황">
+            <thead><tr><th scope="col">공시일·사건번호</th><th scope="col">사업장·사건</th><th scope="col">금액·진행 상태</th><th scope="col">책임 범위</th><th scope="col">확정 여부</th></tr></thead>
+            <tbody>
+              <tr><th scope="row"><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106800894">2026.11.06</a><br>2024가합76544</th><td>인천 송도 생활숙박시설 · 분양계약 취소·해제 및 원상회복</td><td>정정 청구액 1,812억 원 · 원고 일부 취하</td><td>신탁재산 한도 책임은 회사 측 항변</td><td></td></tr>
+              <tr><th scope="row"><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260921800354">2026.09.21</a><br>2024가합104586</th><td>인천 신흥동 생활숙박시설 · 양수금 청구</td><td>판결 원금 560억 원 및 지연이자 · 공급계약 해제가 지급 조건</td><td>해당 신탁재산 범위로 제한된 판결</td><td></td></tr>
+            </tbody>
+          </table>
+          <h3>정밀검토 질문</h3>
+          <p>판결 확정 여부와 고유재산의 직접 부담을 확인합니다. 신탁재산 처분이 대여금과 보수 회수에 미칠 영향도 확인합니다.</p>
+          <h3>우선 요청 자료</h3>
+          <p>사업장별 신탁계정대 회수표와 향후 12개월 자금수지표를 받아 월별 회수·상환 일정을 대조합니다.</p>
+          <p>주요 사건별 소송 진행표, 신탁계약의 책임 제한 조항과 고유재산 부담에 대한 법무 검토를 요청합니다.</p>
+        </article>
+        <article class="paper" id="overview" data-demo hidden>
+          <div class="report-meta"><span class="sample">가상 데이터</span><span>재무 기준일 2026.09.30</span></div>
+          <h2 id="report-title">한빛산업 기업 분석</h2>
+          <p class="subtitle">기업 스크리닝 보고서</p>
+          <h3>종합 의견</h3>
+          <p>매출과 영업이익은 전년 동기 대비 늘었으나, 영업현금흐름은 적자입니다. 1년 내 차입금 만기액이 현금성자산을 웃돌아, 신규 자금 집행 전 상환재원 확인이 우선입니다.</p>
+          <div class="metrics">
+            <div><span>현금성자산</span><strong>120억 원</strong></div>
+            <div><span>1년 내 차입금 만기</span><strong>180억 원</strong></div>
+            <div><span>영업현금흐름</span><strong>−35억 원</strong></div>
+          </div>
+          <h3>사업 및 영업 개요</h3>
+          <p>산업용 부품을 만들어 장비 제조사에 납품합니다. 주 수익원은 부품 판매이며, 샘플 매출 920억 원 중 부품 판매가 780억 원, 유지보수·교체용 부품 판매가 140억 원입니다.</p>
+          <p class="source">샘플 근거 · 사업의 내용 / 주요 제품 및 서비스, 매출 및 수주상황</p>
+          <h3>전년 대비 주요 변화</h3>
+          <p class="comparison-note">손익·현금흐름은 전년 3분기 누적과, 차입금 만기액은 전년 말과 비교합니다. 단위는 억 원입니다.</p>
+          <table aria-label="전년 대비 주요 재무 변화">
+            <thead><tr><th scope="col">항목</th><th scope="col">비교 기준</th><th scope="col">과거 → 현재</th><th scope="col">증감</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">매출</th><td>전년 동기</td><td>850 → 920</td><td>+70</td></tr>
+              <tr><th scope="row">영업이익</th><td>전년 동기</td><td>47 → 54</td><td>+7</td></tr>
+              <tr><th scope="row">영업현금흐름</th><td>전년 동기</td><td>20 → −35</td><td class="watch">−55 · 적자 전환</td></tr>
+              <tr><th scope="row">1년 내 차입금 만기</th><td>전년 말</td><td>110 → 180</td><td class="watch">+70 · 상환 부담 증가</td></tr>
+            </tbody>
+          </table>
+          <p class="comparison-note"><strong>유의할 변화</strong> · 이익이 늘었는데 영업현금흐름은 적자로 돌아섰습니다. 매출채권 회수와 재고 증가가 현금흐름에 영향을 줬는지 확인합니다. 1년 내 차입금 만기액도 늘어 월별 상환재원을 함께 확인합니다.</p>
+          <p class="source">샘플 근거 · 손익계산서, 현금흐름표, 차입금 만기 주석</p>
+          <h3>정기보고서 이후 주요 공시</h3>
+          <table aria-label="주요 공시 샘플">
+            <thead><tr><th scope="col">접수일·공시</th><th scope="col">사건과 회사에 미칠 영향</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">11.13 · 단일판매·공급계약 정정</th><td>납품 종료일이 3개월 늦춰졌습니다. 매출 인식과 대금 회수 일정에 미치는 영향을 확인합니다.</td></tr>
+              <tr><th scope="row">11.12 · 전환사채 발행 결정</th><td>운영자금 50억 원 조달 계획입니다. 납입 여부, 조기상환 조건과 전환 시 지분 희석을 확인합니다.</td></tr>
+            </tbody>
+          </table>
+          <p class="source">샘플 조회 범위 · 3분기보고서 접수일 이후부터 검토 기준일까지. 정정공시는 변경 내용과 함께 표시합니다.</p>
+        </article>
+        <article class="paper" data-demo hidden>
+          <div class="report-meta"><span class="sample">가상 데이터</span></div>
+          <h2>재무제표 주석 분석</h2>
+          <div class="table-wrap"><table><thead><tr><th scope="col">주석 항목</th><th scope="col">샘플 확인 내용</th><th scope="col">영향과 우선 확인 사항</th></tr></thead>
+          <tbody>
+          <tr><th scope="row">차입금</th><td>1년 내 만기 180억 원</td><td>만기액이 현금성자산을 60억 원 웃돕니다. 월별 만기와 상환재원을 확인합니다.</td></tr>
+          <tr><th scope="row">우발부채 및 약정사항</th><td>계열사 보증 한도 60억 원. 소송 청구액은 검토 범위에서 미확인.</td><td>보증 청구가 차입금 상환과 겹치면 자금 부담이 커질 수 있습니다. 실제 보증 잔액과 청구 조건, 소송 진행 상황을 확인합니다.</td></tr>
+          <tr><th scope="row">담보제공자산</th><td>보유 부동산을 차입금 담보로 제공</td><td>추가 차입에 쓸 담보가 줄어들 수 있습니다. 담보 순위와 추가 담보 여력을 확인합니다.</td></tr>
+          <tr><th scope="row">특수관계자 거래</th><td>계열사 대여금 잔액 25억 원</td><td>회수 지연 시 가용자금이 줄 수 있습니다. 만기와 상대방의 상환재원을 확인합니다.</td></tr>
+          <tr><th scope="row">매출채권 및 손실충당금</th><td>장기 연체 채권 30억 원, 관련 손실충당금 10억 원</td><td>회수 전망이 악화되면 추가 손실이 생길 수 있습니다. 연체 기간과 보고기간 이후 회수액을 확인합니다.</td></tr>
+          </tbody></table></div>
+          <h3>정밀검토 요청 자료</h3>
+          <p>향후 12개월 자금수지표, 차입금 만기표, 지급보증 계약서와 잔액 명세를 우선 요청합니다.</p>
+          <p class="source">샘플 출처 · 3분기보고서 재무제표 주석 / 각 행의 주석 항목 참조</p>
+          <details class="coverage">
+            <summary>공시 검토 범위와 근거 표시 방식</summary>
+            <ul>
+              <li><strong>사업·영업</strong> · 사업부문, 제품과 서비스, 매출과 수주, 주요 고객 의존도, 업종별 위험</li>
+              <li><strong>재무·감사</strong> · 손익과 현금흐름, 연결·별도 재무, 차입 만기, 감사의견, 계속기업 관련 사항, 내부회계</li>
+              <li><strong>재무제표 주석</strong> · 담보, 보증, 책임준공과 자금보충 약정, 소송, 특수관계자 거래, 충당금과 손상, 보고기간 후 사건</li>
+              <li><strong>주요 거래와 자금조달</strong> · 주요사항보고서, 거래소 공시, 증권신고서 등에서 증자·감자, 사채 발행, 인수·합병, 자산 양수도, 계약 체결·해지, 영업정지·회생신청</li>
+              <li><strong>지분과 지배구조</strong> · 최대주주 변동, 대량보유, 임원·주요주주 지분 변동, 주총과 이사회 주요 결정</li>
+            </ul>
+            <p>실제 분석에서는 각 판단에 보고서명, 접수일, 재무 기준일과 원문 위치를 표시합니다. 공시 결과는 기재된 사실, 회사가 해당 사항 없다고 명시한 경우, 조회 범위에서 확인되지 않은 경우를 구분합니다.</p>
+          </details>
+        </article>
+        <article class="paper" id="agenda-page" hidden>
+          <h2>안건 검토 의견</h2>
+          <p id="agenda-text" class="agenda-text"></p>
+          <h3>우선 검토 의견</h3>
+          <p id="agenda-opinion"></p>
+          <h3>안건별 확인 질문</h3>
+          <ul id="agenda-checks"></ul>
+          <p class="source" id="agenda-source"><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001649">2026년 반기보고서 · 신탁계정대 및 주석 4, 26, 27</a></p>
+        </article>
+      </div>
+      <p class="sr-only" role="status" id="status"></p>
+      <section class="paper" id="disclosures" hidden aria-labelledby="disclosures-title">
+        <h2 id="disclosures-title">DART 공시</h2>
+        <p id="disclosures-range"></p>
+        <ul id="disclosures-list"></ul>
+      </section>
+    </section>
+  </div>
+</main>
+</body>
+</html>
