@@ -241,10 +241,15 @@ def build_report(company, today, result=None):
 
 
 def evidence_documents(filings, key):
-    regular = [f for f in filings if re.search(r'사업보고서|반기보고서|분기보고서|감사보고서', f['title'])]
-    annual = [f for f in regular if re.search(r'사업보고서|감사보고서', f['title'])]
+    regular = [f for f in filings if re.search(r'(?:사업|반기|분기|감사)보고서\s*\(\d{4}\.\d{2}\)', f['title'])]
+    annual = {}
+    for filing in regular:
+        match = re.search(r'(사업|감사)보고서\s*\((\d{4})\.\d{2}\)', filing['title'])
+        if match:
+            annual.setdefault(match[2], filing)
     events = [f for f in filings if re.search(r'소송|판결|증자|감자|합병|회생|영업정지|공급계약|채무보증|담보제공', f['title'])]
-    selected = list({f['url']: f for f in regular[:1] + annual[:3] + events[:5]}.values())
+    annual_documents = [annual[year] for year in sorted(annual, reverse=True)[:3]]
+    selected = list({f['url']: f for f in regular[:1] + annual_documents + events[:5]}.values())
     documents = []
     for filing in selected:
         receipt = filing['url'][-14:]
@@ -261,15 +266,26 @@ def evidence_documents(filings, key):
         lines = [line.strip() for line in unescape(re.sub(r'<[^>]+>', '', raw)).splitlines() if line.strip()]
         if not lines:
             continue
-        priority = re.compile(r'^(?:\d+\.?\s*)?(?:사업의 개요|주요 제품|영업의 현황|우발|약정사항|계류|특수관계자|충당부채|신탁계정대|재무위험|감사의견|핵심감사|재무상태표|포괄손익계산서|현금흐름표)')
+        priority = re.compile(
+            r'^(?:[IVXⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]+\.\s*)?(?:\(?\d+[.)]?\s*)?'
+            r'(?P<category>사업의 개요|주요 제품|영업의 현황|우발|약정사항|계류|특수관계자|'
+            r'충당부채|신탁계정대|잔존계약만기|차입부채|재무위험|감사의견|핵심감사|'
+            r'재무상태표|포괄손익계산서|현금흐름표)'
+        )
         if filing in regular:
             windows = {}
             for i, line in enumerate(lines):
                 match = priority.match(line) if len(line) <= 240 else None
                 if match:
-                    category = re.sub(r'^\d+\.?\s*', '', match[0])
-                    windows.setdefault(category, []).append(i)
-            chunks = ['\n'.join(lines[:240])[:8500]]
+                    windows.setdefault(match['category'], []).append(i)
+            precise = re.compile(r'신탁계정대의 (?:내역|변동내역)은 다음과 같습니다')
+            anchors = [i for i, line in enumerate(lines) if precise.search(line)]
+            chunks = ['\n'.join(lines[i:i + 45])[:1400] for i in anchors[:3]]
+            for category in ('신탁계정대', '잔존계약만기', '우발', '계류', '특수관계자'):
+                indices = windows.pop(category, [])
+                for i in indices[:3]:
+                    chunks.append('\n'.join(lines[i:i + 65])[:1800])
+            chunks.append('\n'.join(lines[:240])[:8500])
             for indices in windows.values():
                 # The first hit may be a contents entry. Keep a later hit as well.
                 for i in dict.fromkeys([indices[0], indices[min(1, len(indices) - 1)]]):
@@ -300,7 +316,9 @@ def build_ai_report(company, agenda, today):
 
     def cited(text, ids):
         confirmed = sorted({refs[i][0] for i in ids if i in refs})
-        return text + (' ' + ' '.join(f'[{n}]' for n in confirmed) if text and confirmed else '')
+        if text and confirmed:
+            return text + ' ' + ' '.join(f'[{n}]' for n in confirmed)
+        return ''
 
     def field(name):
         data = review[name]
@@ -310,12 +328,14 @@ def build_ai_report(company, agenda, today):
         report[name] = field(name) or (report[name] if name == 'overview' else '')
     report['risks'] = [[r['topic'], cited(r['fact'], r['sources']), r['question']] for r in review['risks']]
     report['riskHeading'] = '재무제표 주석과 업종별 위험'
-    report['litigation'] = [[r['case'], r['status'], r['amount'], r['final'],
-                             cited('공시', r['sources']) if r['sources'] else ''] for r in review['litigation']]
+    report['litigation'] = [
+        [r['case'], r['status'], r['amount'], r['final'], cited('공시', r['sources'])]
+        for r in review['litigation'] if any(i in refs for i in r['sources'])
+    ]
     report['followup'] = review['followup']
     report['sources'] = [(f'[{n}] {title}', receipt) for receipt, (n, title) in refs.items()]
     finance = review['finance']
-    if not report['balance'] and finance['years']:
+    if not report['balance'] and finance['years'] and any(i in refs for i in finance['sources']):
         report['scope'] = (finance['basis'] or '공시 원문 기반') + ' · AI 추출 재무'
         report['years'], report['trendYears'] = finance['years'], finance['trend_years']
         for field_name in ('balance', 'income', 'cash', 'trend'):
@@ -412,7 +432,8 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if self.path == '/api/ai-report':
             origin = self.headers.get('Origin')
-            if origin and urllib.parse.urlsplit(origin).netloc != self.headers.get('Host'):
+            host = self.headers.get('Host')
+            if host not in ('127.0.0.1:8765', 'localhost:8765') or (origin and origin != 'http://' + host):
                 self.send_json({'error': '로컬 보고서 화면에서 AI 검토를 실행해 주세요.'}, 403)
                 return
             self.create_ai_report(company, agenda)
@@ -495,37 +516,24 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(pdf)
 
 
-def setup_key():
-    path = ROOT / '.env'
-    if path.exists():
-        sys.exit('.env 파일이 이미 있습니다. 기존 파일에서 인증키를 확인해 주세요.')
-    key = getpass.getpass('OpenDART 인증키 (입력값이 화면에 표시되지 않습니다): ').strip()
-    if not re.fullmatch(r'[A-Za-z0-9]{40}', key):
-        sys.exit('40자리 인증키를 입력해 주세요.')
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, 'w') as config:
-        config.write('OPENDART_API_KEY=' + key + '\n')
-    print('로컬 .env 파일에 인증키를 저장했습니다.')
-
-
-def setup_ai_key():
-    key = getpass.getpass('본인의 OpenAI API 키: ').strip()
-    if not re.fullmatch(r'sk-[a-zA-Z0-9_-]{16,}', key):
-        sys.exit('OpenAI API 키 형식을 확인해 주세요.')
+def setup_local_key(setting, label, pattern):
+    key = getpass.getpass(f'{label} (입력값이 화면에 표시되지 않습니다): ').strip()
+    if not re.fullmatch(pattern, key):
+        sys.exit(f'{label} 형식을 확인해 주세요.')
     path = ROOT / '.env'
     existing = path.read_text(encoding='utf-8').splitlines() if path.exists() else []
-    lines = [line for line in existing if line.partition('=')[0].strip() != 'OPENAI_API_KEY']
+    lines = [line for line in existing if line.partition('=')[0].strip() != setting]
     with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=ROOT, prefix='.env.', delete=False) as config:
-        config.write('\n'.join([*lines, f'OPENAI_API_KEY={key}']) + '\n')
+        config.write('\n'.join([*lines, f'{setting}={key}']) + '\n')
     os.replace(config.name, path)
-    print('OpenAI API 키를 로컬 .env에 저장했습니다.')
+    print(f'{label}를 로컬 .env에 저장했습니다.')
 
 
 if __name__ == '__main__':
     if sys.argv[1:] == ['--setup-key']:
-        setup_key()
+        setup_local_key('OPENDART_API_KEY', 'OpenDART 인증키', r'[A-Za-z0-9]{40}')
     elif sys.argv[1:] == ['--setup-ai-key']:
-        setup_ai_key()
+        setup_local_key('OPENAI_API_KEY', 'OpenAI API 키', r'sk-[a-zA-Z0-9_-]{16,}')
     else:
         with ThreadingHTTPServer(('127.0.0.1', 8765), Handler) as server:
             print('http://127.0.0.1:8765', flush=True)
